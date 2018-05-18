@@ -28,7 +28,7 @@ func HandleSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchAdverts(location, category, input string) (adverts []Advert, err error) {
-	stmt, err := Db.Prepare("SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || $1 ||'%') OR LOWER(CATEGORY) LIKE LOWER('%' || $2 ||'%') OR LOWER(DESCRIPTION) LIKE ('%' || $3 ||'%') OR LOWER(TITLE) LIKE ('%' || $4 ||'%');")
+	stmt, err := Db.Prepare("SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || $1 ||'%') AND LOWER(CATEGORY) LIKE LOWER('%' || $2 ||'%') AND LOWER(DESCRIPTION) LIKE ('%' || $3 ||'%') AND LOWER(TITLE) LIKE ('%' || $4 ||'%');")
 	if err != nil {
 		log.Println(err)
 		return
