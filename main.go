@@ -24,7 +24,8 @@ func main() {
 	router.HandleFunc("/api/check", models.CheckUserStatus).Methods("GET")
 	router.HandleFunc("/api/get_ads/", models.GetAds).Methods("GET")
 	router.HandleFunc("/api/advert/{uid}", models.GetAdByUID).Methods("GET")
-	router.HandleFunc("/api/search/", models.HandleSearch).Methods("GET")
+	router.HandleFunc("/api/advert_by_categories/", models.AdvertByCategoriesAndCount).Methods("GET")
+	router.HandleFunc("/api/get_cities/", models.GetCitiesAndCategoriesInDB).Methods("GET")
 
 	// setup request allowed by the server
 	headers := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "Content-Type", "Authorization", "X-Requested-With"})

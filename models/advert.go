@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -109,30 +108,37 @@ func generateUUID() string {
 	return uuid.String()
 }
 
-func GetAds(w http.ResponseWriter, r *http.Request) {
-	limitS := r.URL.Query()["limit"]
-	offsetS := r.URL.Query()["offset"]
-	limit, err := strconv.Atoi(limitS[0])
-	if err != nil {
-		log.Println(err)
-	}
-	offset, err := strconv.Atoi(offsetS[0])
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println(limit, offset)
-	imagesURL, err := getAdvertsFromDB(limit, offset)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	bs, err := json.Marshal(imagesURL)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	w.Write(bs)
-}
+// func GetAds(w http.ResponseWriter, r *http.Request) {
+// 	query := r.URL.Query()
+// 	limitS := query["limit"]
+// 	offsetS := query["offset"]
+// 	location := strings.Join(query["location"], "")
+// 	category := strings.Join(query["category"], "")
+// 	input := strings.Join(query["input"], "")
+// 	sort := strings.Join(query["sort"], "")
+
+// 	limit, err := strconv.Atoi(limitS[0])
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// 	offset, err := strconv.Atoi(offsetS[0])
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// 	log.Println(limit, offset)
+// 	log.Println(location, category, input, sort)
+// 	imagesURL, err := getAdvertsFromDB(limit, offset)
+// 	if err != nil {
+// 		log.Println(err)
+// 		return
+// 	}
+// 	bs, err := json.Marshal(imagesURL)
+// 	if err != nil {
+// 		log.Println(err)
+// 		return
+// 	}
+// 	w.Write(bs)
+// }
 
 func GetAdByUID(w http.ResponseWriter, r *http.Request) {
 	adUID := mux.Vars(r)["uid"]
@@ -169,7 +175,8 @@ func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
 }
 
 func getAdvertsFromDB(limit, offset int) (ads []Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS ORDER BY CREATED_AT DESC LIMIT $1 OFFSET $2")
+
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS ORDER BY CREATED_AT LIMIT $1 OFFSET $2")
 	if err != nil {
 		log.Println(err)
 		return
