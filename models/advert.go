@@ -175,7 +175,6 @@ func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
 }
 
 func getAdvertsFromDB(limit, offset int) (ads []Advert, err error) {
-
 	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS ORDER BY CREATED_AT LIMIT $1 OFFSET $2")
 	if err != nil {
 		log.Println(err)

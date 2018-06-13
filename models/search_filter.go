@@ -20,19 +20,19 @@ type categorieWithCount struct {
 
 func GetAds(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	limitS := query["limit"]
-	offsetS := query["offset"]
-	location := strings.Join(query["location"], "")
-	category := strings.Join(query["category"], "")
+	limitS := query["limit"][0]
+	offsetS := query["offset"][0]
+	location := strings.Replace(query["location"][0], "_", " ", -1)
+	category := strings.Replace(query["category"][0], "_", " ", -1)
 	input := strings.Join(query["input"], "")
 	sort := strings.Join(query["sort"], "")
-	log.Println(location, category, input, sort)
+	log.Println(location, category)
 
-	limit, err := strconv.Atoi(limitS[0])
+	limit, err := strconv.Atoi(limitS)
 	if err != nil {
 		log.Println(err)
 	}
-	offset, err := strconv.Atoi(offsetS[0])
+	offset, err := strconv.Atoi(offsetS)
 	if err != nil {
 		log.Println(err)
 	}
