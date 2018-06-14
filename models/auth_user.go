@@ -17,15 +17,21 @@ var signedKey = []byte("okz")
 
 // struct user for each user on the site
 type User struct {
-	ID             int
-	Uuid           string
-	DisplayName    string `json:"userName"`
-	Email          string `json:"email"`
-	PhoneNumber    string `json:"phoneNumber"`
-	Rating         int
-	Password       string `json:"password"`
-	FavoritesAdsID []int
-	Created_at     time.Time
+	ID                int
+	Uuid              string
+	DisplayName       string `json:"userName"`
+	Email             string `json:"email"`
+	PhoneNumber       string `json:"phoneNumber"`
+	Password          string `json:"password"`
+	UserProfileImgUrl string `json:"profileImg"`
+	Created_at        time.Time
+}
+
+type UserData struct {
+	Info         User
+	Rating       int
+	OwnAdverts   []Advert `json:"userOwnAds`
+	FavoritesAds []Advert `json:"favoritesAds"`
 }
 
 type Session struct {
@@ -36,9 +42,46 @@ type Session struct {
 	CreatedAt time.Time
 }
 type Token struct {
-	Token             string `json:"token"`
-	UserID            int    `json:"userId"`
-	UserProfileImgUrl string `json:"profileImg"`
+	Token    string   `json:"token"`
+	UserData UserData `json:"userdata"`
+}
+
+func (u *User) getUserData() (userData UserData, err error) {
+	stmt1, err := Db.Prepare("SELECT USER_NAME, EMAIL, PHONE_NUMBER FROM USERS WHERE ID=$1")
+	if err != nil {
+		return
+	}
+	stmt2, err := Db.Prepare("SELECT ADVERT_ID FROM FAVORITES WHERE USER_ID=$1")
+	if err != nil {
+		return
+	}
+	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber)
+	if err != nil {
+		return
+	}
+	rows, err := stmt2.Query(u.ID)
+	if err != nil {
+		return
+	}
+
+	for rows.Next() {
+		var advertID int
+		err := rows.Scan(&advertID)
+		if err != nil {
+			log.Println(err)
+		}
+		ad, err := getAdvertByID(advertID)
+		if err != nil {
+			log.Println(err)
+		}
+		userData.FavoritesAds = append(userData.FavoritesAds, ad)
+	}
+	userData.OwnAdverts, err = getAdvertsByUserID(u.ID)
+	if err != nil {
+		return
+	}
+	log.Println("user data", userData)
+	return
 }
 
 func (u *User) getToken(w http.ResponseWriter) error {
@@ -46,14 +89,19 @@ func (u *User) getToken(w http.ResponseWriter) error {
 
 	claims := token.Claims.(jwt.MapClaims)
 
-	claims["exp"] = time.Now().Add(time.Minute * 30).Unix()
+	claims["exp"] = time.Now().Add(time.Hour * 48).Unix()
 	claims["iss"] = "okz website"
 	claims["name"] = u.DisplayName
 	tokenValue, err := token.SignedString(signedKey)
 	if err != nil {
 		return err
 	}
-	tokenJSON, err := json.Marshal(Token{Token: tokenValue, UserID: u.ID})
+	userData, err := u.getUserData()
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	tokenJSON, err := json.Marshal(Token{Token: tokenValue, UserData: userData})
 	if err != nil {
 		log.Println(err)
 		return err

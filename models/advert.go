@@ -174,6 +174,49 @@ func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
 	return
 }
 
+func getAdvertByID(ID int) (advert Advert, err error) {
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE ID=$1")
+	if err != nil {
+		return
+	}
+	var id int
+	err = stmt.QueryRow(ID).Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+	if err != nil {
+		return
+	}
+	advert.ImgURL, err = getAdvertImagesURL(id)
+	if err != nil {
+		log.Println(err, "failed in gettin images's urls")
+		return
+	}
+	return
+}
+
+func getAdvertsByUserID(ID int) (ads []Advert, err error) {
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE OWNER_ID=$1")
+	if err != nil {
+		return
+	}
+	rows, err := stmt.Query(ID)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var id int
+		var advert Advert
+		err = rows.Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		if err != nil {
+			return
+		}
+		advert.ImgURL, err = getAdvertImagesURL(id)
+		if err != nil {
+			log.Println(err, "failed in gettin images's urls")
+		}
+		ads = append(ads, advert)
+	}
+	return
+}
+
 func getAdvertsFromDB(limit, offset int) (ads []Advert, err error) {
 	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS ORDER BY CREATED_AT LIMIT $1 OFFSET $2")
 	if err != nil {
