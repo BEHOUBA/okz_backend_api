@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,7 +19,7 @@ import (
 
 // Advert struct representing each ad data
 type Advert struct {
-	OwnerID     int    `json:"userID"`
+	OwnerID     int       `json:"userID"`
 	UID         string    `json:"Uid"`
 	Title       string    `json:"title"`
 	Category    string    `json:"category"`
@@ -143,18 +144,48 @@ func generateUUID() string {
 
 func GetAdByUID(w http.ResponseWriter, r *http.Request) {
 	adUID := mux.Vars(r)["uid"]
+	userID, err := strconv.Atoi(r.URL.Query()["userID"][0])
 	advert, err := getAdvertFromDBByUID(adUID)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+	err = advert.isFavorite(userID)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(advert.IsFavorite)
 	bs, err := json.Marshal(advert)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	w.Write(bs)
+}
+
+func (ad *Advert) isFavorite(userID int) (err error) {
+	stmt, err := Db.Prepare("SELECT * FROM FAVORITES WHERE USER_ID=$1 AND ADVERT_UID=$2")
+	if err != nil {
+		log.Println("Error preparing select statement statement from isFavorite method.")
+		return
+	}
+	res, err := stmt.Exec(userID, ad.UID)
+	if err != nil {
+		return
+	}
+	i, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if i == 0 {
+		ad.IsFavorite = false
+		log.Println("this not favorite")
+		return nil
+	}
+	log.Println("this is favorite")
+	ad.IsFavorite = true
+	return nil
 }
 
 func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
