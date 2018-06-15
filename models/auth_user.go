@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -28,10 +29,10 @@ type User struct {
 }
 
 type UserData struct {
-	Info         User
-	Rating       int
-	OwnAdverts   []Advert `json:"userOwnAds`
-	FavoritesAds []Advert `json:"favoritesAds"`
+	Info User
+	// Rating       int
+	// OwnAdverts   []Advert `json:"userOwnAds`
+	// FavoritesAds []Advert `json:"favoritesAds"`
 }
 
 type Session struct {
@@ -47,40 +48,23 @@ type Token struct {
 }
 
 func (u *User) getUserData() (userData UserData, err error) {
-	stmt1, err := Db.Prepare("SELECT USER_NAME, EMAIL, PHONE_NUMBER FROM USERS WHERE ID=$1")
+	stmt1, err := Db.Prepare("SELECT ID, USER_NAME, EMAIL, PHONE_NUMBER FROM USERS WHERE ID=$1")
 	if err != nil {
 		return
 	}
-	stmt2, err := Db.Prepare("SELECT ADVERT_ID FROM FAVORITES WHERE USER_ID=$1")
-	if err != nil {
-		return
-	}
-	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber)
-	if err != nil {
-		return
-	}
-	rows, err := stmt2.Query(u.ID)
+	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.ID, &userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber)
 	if err != nil {
 		return
 	}
 
-	for rows.Next() {
-		var advertID int
-		err := rows.Scan(&advertID)
-		if err != nil {
-			log.Println(err)
-		}
-		ad, err := getAdvertByID(advertID)
-		if err != nil {
-			log.Println(err)
-		}
-		userData.FavoritesAds = append(userData.FavoritesAds, ad)
-	}
-	userData.OwnAdverts, err = getAdvertsByUserID(u.ID)
-	if err != nil {
-		return
-	}
-	log.Println("user data", userData)
+	// userData.OwnAdverts, err = getAdvertsByUserID(u.ID)
+	// if err != nil {
+	// 	return
+	// }
+	// userData.FavoritesAds, err = getFavoritesByUserID(u.ID)
+	// if err != nil {
+	// 	return
+	// }
 	return
 }
 
@@ -222,4 +206,102 @@ func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("success user created!")
 	newUser.getToken(w)
+}
+
+func AddToFavorites(w http.ResponseWriter, r *http.Request) {
+	advertUUID := r.URL.Query()["uuid"][0]
+	userID, err := strconv.Atoi(r.URL.Query()["user"][0])
+	if err != nil {
+		log.Println("cannot convert userID into integer: ", err)
+		return
+	}
+	if err := addFavoriteToDB(userID, advertUUID); err != nil {
+		log.Println("failed to add favorite to database: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func addFavoriteToDB(userID int, advertUUID string) (err error) {
+	stmt, err := Db.Prepare("INSERT INTO FAVORITES (USER_ID, ADVERT_UID) VALUES ($1, $2);")
+	if err != nil {
+		return
+	}
+	res, err := stmt.Exec(userID, advertUUID)
+	if err != nil {
+		return
+	}
+	log.Println("result of add to favorites statement", res)
+	return
+}
+
+func RemoveFavorite(w http.ResponseWriter, r *http.Request) {
+	advertUUID := r.URL.Query()["uuid"][0]
+	userID, err := strconv.Atoi(r.URL.Query()["user"][0])
+	if err != nil {
+		log.Println("cannot convert userID into integer: ", err)
+		return
+	}
+	if err := removeFavoriteFromDB(userID, advertUUID); err != nil {
+		log.Println("failed to remove favorite from database: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func removeFavoriteFromDB(userID int, advertUUID string) (err error) {
+	stmt, err := Db.Prepare("DELETE FROM FAVORITES WHERE USER_ID=$1 AND ADVERT_UID=$2;")
+	if err != nil {
+		return
+	}
+	res, err := stmt.Exec(userID, advertUUID)
+	if err != nil {
+		return
+	}
+	log.Println("removed from favorites statement", &res)
+	return
+}
+
+func GetFavorites(w http.ResponseWriter, r *http.Request) {
+	var adverts []Advert
+	userID, err := strconv.Atoi(r.URL.Query()["userID"][0])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	adverts, err = getFavoritesByUserID(userID)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	bs, err := json.Marshal(adverts)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(bs)
+}
+
+func GetUserAdverts(w http.ResponseWriter, r *http.Request) {
+	var adverts []Advert
+	userID, err := strconv.Atoi(r.URL.Query()["userID"][0])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	adverts, err = getAdvertsByUserID(userID)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	bs, err := json.Marshal(adverts)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(bs)
 }

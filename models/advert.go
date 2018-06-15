@@ -18,7 +18,7 @@ import (
 
 // Advert struct representing each ad data
 type Advert struct {
-	OwnerID     string    `json:"userID"`
+	OwnerID     int    `json:"userID"`
 	UID         string    `json:"Uid"`
 	Title       string    `json:"title"`
 	Category    string    `json:"category"`
@@ -29,6 +29,7 @@ type Advert struct {
 	Contact     string    `json:"contact"`
 	Address     string    `json:"address"`
 	CreatedAt   time.Time `json:"createdAt"`
+	IsFavorite  bool      `json:"isFavorite"`
 }
 
 var Db *sql.DB
@@ -205,6 +206,40 @@ func getAdvertsByUserID(ID int) (ads []Advert, err error) {
 		var id int
 		var advert Advert
 		err = rows.Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		if err != nil {
+			return
+		}
+		advert.ImgURL, err = getAdvertImagesURL(id)
+		if err != nil {
+			log.Println(err, "failed in gettin images's urls")
+		}
+		ads = append(ads, advert)
+	}
+	return
+}
+
+func getFavoritesByUserID(ID int) (ads []Advert, err error) {
+	stmt, err := Db.Prepare("SELECT ADVERT_UID FROM FAVORITES WHERE USER_ID=$1;")
+	if err != nil {
+		return
+	}
+	stmt2, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE AD_UID=$1")
+	if err != nil {
+		return
+	}
+	rows, err := stmt.Query(ID)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var adUID string
+		var advert Advert
+		var id int
+		err = rows.Scan(&adUID)
+		if err != nil {
+			return
+		}
+		err = stmt2.QueryRow(adUID).Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
 		if err != nil {
 			return
 		}

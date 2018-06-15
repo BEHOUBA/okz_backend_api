@@ -26,7 +26,7 @@ func GetAds(w http.ResponseWriter, r *http.Request) {
 	category := strings.Replace(query["category"][0], "_", " ", -1)
 	input := strings.Join(query["input"], "")
 	sort := strings.Join(query["sort"], "")
-	log.Println(location, category)
+	// log.Println(location, category)
 
 	limit, err := strconv.Atoi(limitS)
 	if err != nil {
