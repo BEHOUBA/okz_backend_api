@@ -185,10 +185,6 @@ func (u *User) createUser(w http.ResponseWriter) (user User, err error) {
 func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 	var data User
 	bs := make([]byte, r.ContentLength)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 	bs, err = ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -204,7 +200,7 @@ func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	log.Println("success user created!")
+	log.Println(newUser, "success user created!")
 	newUser.getToken(w)
 }
 
