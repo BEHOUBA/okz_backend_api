@@ -16,18 +16,18 @@ import (
 
 var signedKey = []byte("okz")
 
-// struct user for each user on the site
+// User struct for each user on the site
 type User struct {
-	ID                int
-	Uuid              string
-	DisplayName       string `json:"userName"`
-	Email             string `json:"email"`
-	PhoneNumber       string `json:"phoneNumber"`
-	Password          string `json:"password"`
-	UserProfileImgUrl string `json:"profileImg"`
-	Created_at        time.Time
+	ID                int       `json:"id"`
+	DisplayName       string    `json:"userName"`
+	Email             string    `json:"email"`
+	PhoneNumber       string    `json:"phoneNumber"`
+	Password          string    `json:"password"`
+	UserProfileImgURL string    `json:"profileImg"`
+	CreatedAt         time.Time `json:"date"`
 }
 
+// UserData struct for
 type UserData struct {
 	Info User
 	// Rating       int
@@ -35,13 +35,13 @@ type UserData struct {
 	// FavoritesAds []Advert `json:"favoritesAds"`
 }
 
-type Session struct {
-	ID        int
-	Uuid      string
-	Email     string
-	UserID    int
-	CreatedAt time.Time
-}
+// type Session struct {
+// 	ID        int
+// 	Uuid      string
+// 	Email     string
+// 	UserID    int
+// 	CreatedAt time.Time
+// }
 type Token struct {
 	Token    string   `json:"token"`
 	UserData UserData `json:"userdata"`
@@ -169,7 +169,7 @@ func (u *User) createUser(w http.ResponseWriter) (user User, err error) {
 	if err != nil {
 		log.Println(err, "error lors du cryptage du mot de passe")
 	}
-	err = stmt.QueryRow(u.DisplayName, u.Email, u.PhoneNumber, string(passwordBS), time.Now()).Scan(&user.ID, &user.DisplayName, &user.Email, &user.PhoneNumber, &user.Password, &user.Created_at)
+	err = stmt.QueryRow(u.DisplayName, u.Email, u.PhoneNumber, string(passwordBS), time.Now()).Scan(&user.ID, &user.DisplayName, &user.Email, &user.PhoneNumber, &user.Password, &user.CreatedAt)
 	if err != nil {
 		if err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"` {
 			w.WriteHeader(http.StatusConflict)
@@ -208,25 +208,31 @@ func RegisterNewUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddToFavorites(w http.ResponseWriter, r *http.Request) {
-	advertUUID := r.URL.Query()["uuid"][0]
+	advertID, err := strconv.Atoi(r.URL.Query()["id"][0])
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	userID, err := strconv.Atoi(r.URL.Query()["user"][0])
 	if err != nil {
 		log.Println("cannot convert userID into integer: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if err := addFavoriteToDB(userID, advertUUID); err != nil {
+	if err := addFavoriteToDB(userID, advertID); err != nil {
 		log.Println("failed to add favorite to database: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func addFavoriteToDB(userID int, advertUUID string) (err error) {
-	stmt, err := Db.Prepare("INSERT INTO FAVORITES (USER_ID, ADVERT_UID) VALUES ($1, $2);")
+func addFavoriteToDB(userID int, advertID int) (err error) {
+	stmt, err := Db.Prepare("INSERT INTO FAVORITES (USER_ID, ADVERT_ID) VALUES ($1, $2);")
 	if err != nil {
 		return
 	}
-	res, err := stmt.Exec(userID, advertUUID)
+	res, err := stmt.Exec(userID, advertID)
 	if err != nil {
 		return
 	}
@@ -235,25 +241,31 @@ func addFavoriteToDB(userID int, advertUUID string) (err error) {
 }
 
 func RemoveFavorite(w http.ResponseWriter, r *http.Request) {
-	advertUUID := r.URL.Query()["uuid"][0]
+	advertID, err := strconv.Atoi(r.URL.Query()["id"][0])
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	userID, err := strconv.Atoi(r.URL.Query()["user"][0])
 	if err != nil {
 		log.Println("cannot convert userID into integer: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if err := removeFavoriteFromDB(userID, advertUUID); err != nil {
+	if err := removeFavoriteFromDB(userID, advertID); err != nil {
 		log.Println("failed to remove favorite from database: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func removeFavoriteFromDB(userID int, advertUUID string) (err error) {
-	stmt, err := Db.Prepare("DELETE FROM FAVORITES WHERE USER_ID=$1 AND ADVERT_UID=$2;")
+func removeFavoriteFromDB(userID int, advertID int) (err error) {
+	stmt, err := Db.Prepare("DELETE FROM FAVORITES WHERE USER_ID=$1 AND ADVERT_ID=$2;")
 	if err != nil {
 		return
 	}
-	res, err := stmt.Exec(userID, advertUUID)
+	res, err := stmt.Exec(userID, advertID)
 	if err != nil {
 		return
 	}

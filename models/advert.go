@@ -28,7 +28,7 @@ type Advert struct {
 	Category    string    `json:"category"`
 	Location    string    `json:"location"`
 	Description string    `json:"description"`
-	Price       int    `json:"price"`
+	Price       int       `json:"price"`
 	ImgURL      []string  `json:"imgUrls"`
 	Contact     string    `json:"contact"`
 	Address     string    `json:"address"`
@@ -79,7 +79,6 @@ func (a *Advert) storeNewAdToDB() (err error) {
 
 // CreateNewAd new advert from data comming from front end and then add it to database
 func CreateNewAd(w http.ResponseWriter, r *http.Request) {
-	// r.ParseMultipartForm(10000)
 	var ad Advert
 	bs := make([]byte, r.ContentLength)
 
@@ -88,12 +87,13 @@ func CreateNewAd(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-
+	log.Println(string(bs))
 	err = json.Unmarshal(bs, &ad)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	log.Println(ad)
 	err = ad.storeNewAdToDB()
 	if err != nil {
 		log.Println(err)
@@ -168,12 +168,12 @@ func GetAdByUID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ad *Advert) isFavorite(userID int) (err error) {
-	stmt, err := Db.Prepare("SELECT * FROM FAVORITES WHERE USER_ID=$1 AND ADVERT_UID=$2")
+	stmt, err := Db.Prepare("SELECT * FROM FAVORITES WHERE USER_ID=$1 AND ADVERT_ID=$2")
 	if err != nil {
 		log.Println("Error preparing select statement statement from isFavorite method.")
 		return
 	}
-	res, err := stmt.Exec(userID, ad.UID)
+	res, err := stmt.Exec(userID, ad.ID)
 	if err != nil {
 		return
 	}
@@ -196,12 +196,11 @@ func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
 	if err != nil {
 		return
 	}
-	var id int
-	err = stmt.QueryRow(UID).Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+	err = stmt.QueryRow(UID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
 	if err != nil {
 		return
 	}
-	advert.ImgURL, err = getAdvertImagesURL(id)
+	advert.ImgURL, err = getAdvertImagesURL(advert.ID)
 	if err != nil {
 		log.Println(err, "failed in gettin images's urls")
 		return
@@ -251,11 +250,11 @@ func getAdvertsByUserID(ID int) (ads []Advert, err error) {
 }
 
 func getFavoritesByUserID(ID int) (ads []Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ADVERT_UID FROM FAVORITES WHERE USER_ID=$1;")
+	stmt, err := Db.Prepare("SELECT ADVERT_ID FROM FAVORITES WHERE USER_ID=$1;")
 	if err != nil {
 		return
 	}
-	stmt2, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE AD_UID=$1")
+	stmt2, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE ID=$1")
 	if err != nil {
 		return
 	}
@@ -264,13 +263,13 @@ func getFavoritesByUserID(ID int) (ads []Advert, err error) {
 		return
 	}
 	for rows.Next() {
-		var adUID string
+		var adID int
 		var advert Advert
-		err = rows.Scan(&adUID)
+		err = rows.Scan(&adID)
 		if err != nil {
 			return
 		}
-		err = stmt2.QueryRow(adUID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		err = stmt2.QueryRow(adID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
 		if err != nil {
 			return
 		}
@@ -369,19 +368,23 @@ func StoreNewImage(w http.ResponseWriter, r *http.Request) {
 
 func DeleteAd(w http.ResponseWriter, r *http.Request) {
 	CheckUserStatus(w, r)
-	adUID, err := strconv.Atoi(r.URL.Query()["id"][0])
+	adID, err := strconv.Atoi(r.URL.Query()["id"][0])
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = deleteAdByUID(adUID)
+	err = deleteAdByID(adID)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 }
 
-func deleteAdByUID(ID int) (err error) {
+func deleteAdByID(ID int) (err error) {
+	err = deleteAdFromFavoriteTable(ID)
+	if err != nil {
+		log.Println(err)
+	}
 	err = deleteAdImagesUrlsFromStorageAndDB(ID)
 	if err != nil {
 		return
@@ -400,6 +403,18 @@ func deleteAdByUID(ID int) (err error) {
 		return
 	}
 	return errors.New("Can't remove this advert...")
+}
+
+// func removeAdFromFavorite(uid) {
+
+// }
+
+func deleteAdFromFavoriteTable(ID int) (err error) {
+	_, err = Db.Exec("DELETE FROM FAVORITES WHERE ADVERT_ID=$1", ID)
+	if err != nil {
+		return
+	}
+	return
 }
 
 func deleteAdImagesUrlsFromStorageAndDB(ID int) (err error) {
