@@ -47,6 +47,23 @@ type Token struct {
 	UserData UserData `json:"userdata"`
 }
 
+func securityCheck(w http.ResponseWriter, r *http.Request) {
+	token, err := request.ParseFromRequest(r, request.OAuth2Extractor, func(token *jwt.Token) (interface{}, error) {
+		return signedKey, nil
+	})
+
+	if err == nil {
+		if token.Valid {
+			w.WriteHeader(200)
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+			log.Println("token is not valid")
+		}
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
+		log.Println("token is not valid")
+	}
+}
 func (u *User) getUserData() (userData UserData, err error) {
 	stmt1, err := Db.Prepare("SELECT ID, USER_NAME, EMAIL, PHONE_NUMBER FROM USERS WHERE ID=$1")
 	if err != nil {
@@ -95,21 +112,7 @@ func (u *User) getToken(w http.ResponseWriter) error {
 }
 
 func CheckUserStatus(w http.ResponseWriter, r *http.Request) {
-	token, err := request.ParseFromRequest(r, request.OAuth2Extractor, func(token *jwt.Token) (interface{}, error) {
-		return signedKey, nil
-	})
-
-	if err == nil {
-		if token.Valid {
-			w.WriteHeader(200)
-		} else {
-			w.WriteHeader(http.StatusUnauthorized)
-			log.Println("token is not valid")
-		}
-	} else {
-		w.WriteHeader(http.StatusUnauthorized)
-		log.Println("token is not valid")
-	}
+	securityCheck(w, r)
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {

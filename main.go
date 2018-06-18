@@ -31,6 +31,7 @@ func main() {
 	router.HandleFunc("/api/advert/{uid}", models.GetAdByUID).Methods("GET")
 	router.HandleFunc("/api/advert_by_categories/", models.AdvertByCategoriesAndCount).Methods("GET")
 	router.HandleFunc("/api/get_cities/", models.GetCitiesAndCategoriesInDB).Methods("GET")
+	router.HandleFunc("/api/delete_ad/", models.DeleteAd).Methods("DELETE")
 
 	// setup request allowed by the server
 	headers := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "Content-Type", "Authorization", "X-Requested-With"})

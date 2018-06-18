@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -19,13 +21,14 @@ import (
 
 // Advert struct representing each ad data
 type Advert struct {
+	ID          int       `json:"id"`
 	OwnerID     int       `json:"userID"`
 	UID         string    `json:"Uid"`
 	Title       string    `json:"title"`
 	Category    string    `json:"category"`
 	Location    string    `json:"location"`
 	Description string    `json:"description"`
-	Price       string    `json:"price"`
+	Price       int    `json:"price"`
 	ImgURL      []string  `json:"imgUrls"`
 	Contact     string    `json:"contact"`
 	Address     string    `json:"address"`
@@ -211,12 +214,11 @@ func getAdvertByID(ID int) (advert Advert, err error) {
 	if err != nil {
 		return
 	}
-	var id int
-	err = stmt.QueryRow(ID).Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+	err = stmt.QueryRow(ID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
 	if err != nil {
 		return
 	}
-	advert.ImgURL, err = getAdvertImagesURL(id)
+	advert.ImgURL, err = getAdvertImagesURL(advert.ID)
 	if err != nil {
 		log.Println(err, "failed in gettin images's urls")
 		return
@@ -234,13 +236,12 @@ func getAdvertsByUserID(ID int) (ads []Advert, err error) {
 		return
 	}
 	for rows.Next() {
-		var id int
 		var advert Advert
-		err = rows.Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		err = rows.Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
 		if err != nil {
 			return
 		}
-		advert.ImgURL, err = getAdvertImagesURL(id)
+		advert.ImgURL, err = getAdvertImagesURL(advert.ID)
 		if err != nil {
 			log.Println(err, "failed in gettin images's urls")
 		}
@@ -265,16 +266,15 @@ func getFavoritesByUserID(ID int) (ads []Advert, err error) {
 	for rows.Next() {
 		var adUID string
 		var advert Advert
-		var id int
 		err = rows.Scan(&adUID)
 		if err != nil {
 			return
 		}
-		err = stmt2.QueryRow(adUID).Scan(&id, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		err = stmt2.QueryRow(adUID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
 		if err != nil {
 			return
 		}
-		advert.ImgURL, err = getAdvertImagesURL(id)
+		advert.ImgURL, err = getAdvertImagesURL(advert.ID)
 		if err != nil {
 			log.Println(err, "failed in gettin images's urls")
 		}
@@ -296,13 +296,12 @@ func getAdvertsFromDB(limit, offset int) (ads []Advert, err error) {
 	}
 	for rows.Next() {
 		var ad Advert
-		var ID int
-		err = rows.Scan(&ID, &ad.Location, &ad.OwnerID, &ad.Title, &ad.Description, &ad.Category, &ad.Price, &ad.Contact, &ad.CreatedAt, &ad.UID)
+		err = rows.Scan(&ad.ID, &ad.Location, &ad.OwnerID, &ad.Title, &ad.Description, &ad.Category, &ad.Price, &ad.Contact, &ad.CreatedAt, &ad.UID)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		ad.ImgURL, err = getAdvertImagesURL(ID)
+		ad.ImgURL, err = getAdvertImagesURL(ad.ID)
 		if err != nil {
 			log.Println(err)
 			return
@@ -365,5 +364,90 @@ func StoreNewImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("succed")
+	log.Println("image uploaded successfuly")
+}
+
+func DeleteAd(w http.ResponseWriter, r *http.Request) {
+	CheckUserStatus(w, r)
+	adUID, err := strconv.Atoi(r.URL.Query()["id"][0])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	err = deleteAdByUID(adUID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
+func deleteAdByUID(ID int) (err error) {
+	err = deleteAdImagesUrlsFromStorageAndDB(ID)
+	if err != nil {
+		return
+	}
+	stmt, err := Db.Prepare("DELETE FROM ADVERTS WHERE ID=$1")
+	if err != nil {
+		return err
+	}
+	res, err := stmt.Exec(ID)
+	if err != nil {
+		return err
+	}
+	row, err := res.RowsAffected()
+	if row == 1 && err == nil {
+		log.Println(row, "annonce supprimé avec succes")
+		return
+	}
+	return errors.New("Can't remove this advert...")
+}
+
+func deleteAdImagesUrlsFromStorageAndDB(ID int) (err error) {
+	stmt1, err := Db.Prepare("SELECT URL FROM IMAGES_URL WHERE ADVERT_ID=$1")
+	if err != nil {
+		return
+	}
+	rows, err := stmt1.Query(ID)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var URL string
+		rows.Scan(&URL)
+		err = deleteImageFromStorage(URL)
+		if err != nil {
+			continue
+		}
+	}
+	stmt2, err := Db.Prepare("DELETE FROM IMAGES_URL WHERE ADVERT_ID=$1")
+	if err != nil {
+		return
+	}
+	res, err := stmt2.Exec(ID)
+	if err != nil {
+		return
+	}
+	row, err := res.RowsAffected()
+	if row > 0 && err == nil {
+		log.Println(row, "url supprimé avec succes")
+
+		return err
+	}
+	return errors.New("Can't remove these images...")
+}
+
+func deleteImageFromStorage(URL string) (err error) {
+	fileName := strings.Split(URL, "/")[5]
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	path := filepath.Join(wd, "public", "images", fileName)
+	err = os.Remove(path)
+	if err != nil {
+		log.Println("Can't remove this image from local storage...")
+		return
+	}
+	return
 }
