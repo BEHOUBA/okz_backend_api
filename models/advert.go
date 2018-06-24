@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -226,7 +227,7 @@ func getAdvertByID(ID int) (advert Advert, err error) {
 }
 
 func getAdvertsByUserID(ID int) (ads []Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE OWNER_ID=$1")
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE OWNER_ID=$1 ORDER BY CREATED_AT DESC")
 	if err != nil {
 		return
 	}
@@ -335,7 +336,9 @@ func getAdvertImagesURL(id int) (urls []string, err error) {
 
 // StoreNewImage store image uploaded from front end to the server
 func StoreNewImage(w http.ResponseWriter, r *http.Request) {
-
+	adID := mux.Vars(r)["id"]
+	re := regexp.MustCompile(`[\s()]`)
+	
 	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
 		log.Println(err)
@@ -347,8 +350,8 @@ func StoreNewImage(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	adID := mux.Vars(r)["id"]
-	path := filepath.Join(wd, "public", "images", adID+"_"+fileHeader.Filename)
+
+	path := filepath.Join(wd, "public", "images", adID+"_"+re.ReplaceAllString(fileHeader.Filename, ""))
 
 	newFile, err := os.Create(path)
 	if err != nil {
@@ -387,7 +390,8 @@ func deleteAdByID(ID int) (err error) {
 	}
 	err = deleteAdImagesUrlsFromStorageAndDB(ID)
 	if err != nil {
-		return
+		log.Println(err)
+		//return
 	}
 	stmt, err := Db.Prepare("DELETE FROM ADVERTS WHERE ID=$1")
 	if err != nil {

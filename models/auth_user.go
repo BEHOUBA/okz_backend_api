@@ -256,6 +256,7 @@ func RemoveFavorite(w http.ResponseWriter, r *http.Request) {
 	if err := removeFavoriteFromDB(userID, advertID); err != nil {
 		log.Println("failed to remove favorite from database: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
