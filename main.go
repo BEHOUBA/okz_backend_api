@@ -32,10 +32,11 @@ func main() {
 	router.HandleFunc("/api/advert_by_categories/", models.AdvertByCategoriesAndCount).Methods("GET")
 	router.HandleFunc("/api/get_cities/", models.GetCitiesAndCategoriesInDB).Methods("GET")
 	router.HandleFunc("/api/delete_ad/", models.DeleteAd).Methods("DELETE")
+	router.HandleFunc("/api/update_ad/", models.UpdateAd).Methods("PATCH")
 
 	// setup request allowed by the server
 	headers := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "Content-Type", "Authorization", "X-Requested-With"})
-	methods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT"})
+	methods := handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT", "PATCH"})
 	origins := handlers.AllowedOrigins([]string{"http://localhost:8080"})
 
 	http.ListenAndServe(getPort(), handlers.CORS(origins, methods, headers)(router))

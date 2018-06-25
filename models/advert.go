@@ -338,7 +338,7 @@ func getAdvertImagesURL(id int) (urls []string, err error) {
 func StoreNewImage(w http.ResponseWriter, r *http.Request) {
 	adID := mux.Vars(r)["id"]
 	re := regexp.MustCompile(`[\s()]`)
-	
+
 	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
 		log.Println(err)
@@ -468,5 +468,44 @@ func deleteImageFromStorage(URL string) (err error) {
 		log.Println("Can't remove this image from local storage...")
 		return
 	}
+	return
+}
+
+func UpdateAd(w http.ResponseWriter, r *http.Request) {
+	var advert Advert
+	bs, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = json.Unmarshal(bs, &advert)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = advert.updateAdByID()
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (a *Advert) updateAdByID() (err error) {
+	stmt, err := Db.Prepare("UPDATE ADVERTS SET LOCATION=$1, OWNER_ID=$2, TITLE=$3, DESCRIPTION=$4, CATEGORY=$5, PRICE=$6, CONTACT=$7, CREATED_AT=$8, AD_UID=$9 WHERE ID=$10")
+	if err != nil {
+		return
+	}
+	res, err := stmt.Exec(a.Location, a.OwnerID, a.Title, a.Description, a.Category, a.Price, a.Contact, a.CreatedAt, a.UID, a.ID)
+	if err != nil {
+		return
+	}
+	if row, err := res.RowsAffected(); row == 1 && err == nil {
+		log.Println("Updated successfully...")
+		return err
+	}
+	log.Println("Can't update advert...")
 	return
 }
