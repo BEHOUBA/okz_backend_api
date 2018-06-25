@@ -25,6 +25,7 @@ type User struct {
 	Password          string    `json:"password"`
 	UserProfileImgURL string    `json:"profileImg"`
 	CreatedAt         time.Time `json:"date"`
+	Location          string    `json"location"`
 }
 
 // UserData struct for
@@ -65,11 +66,11 @@ func securityCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (u *User) getUserData() (userData UserData, err error) {
-	stmt1, err := Db.Prepare("SELECT ID, USER_NAME, EMAIL, PHONE_NUMBER FROM USERS WHERE ID=$1")
+	stmt1, err := Db.Prepare("SELECT ID, USER_NAME, EMAIL, PHONE_NUMBER, LOCATION, PROFILE_PICTURE_URL FROM USERS WHERE ID=$1")
 	if err != nil {
 		return
 	}
-	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.ID, &userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber)
+	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.ID, &userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber, &userData.Info.Location, &userData.Info.UserProfileImgURL)
 	if err != nil {
 		return
 	}
@@ -316,4 +317,44 @@ func GetUserAdverts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(bs)
+}
+
+func UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	var userData User
+	bs, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = json.Unmarshal(bs, &userData)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = userData.upadedUserData()
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	return
+
+}
+
+func (u *User) upadedUserData() (err error) {
+	stmt, err := Db.Prepare("UPDATE USERS SET USER_NAME=$1, PHONE_NUMBER=$2, PROFILE_PICTURE_URL=$3, LOCATION=$4 WHERE ID=$5;")
+	if err != nil {
+		return
+	}
+	res, err := stmt.Exec(u.DisplayName, u.PhoneNumber, u.UserProfileImgURL, u.Location, u.ID)
+	if err != nil {
+		return
+	}
+	if row, err := res.RowsAffected(); row == 1 && err == nil {
+		log.Println("profile updated successfully!")
+		return err
+	}
+	return
 }

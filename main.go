@@ -19,6 +19,7 @@ func main() {
 	router.HandleFunc("/api/create", models.CreateNewAd).Methods("POST")
 	router.HandleFunc("/api/new_ad", models.CreateNewAdID).Methods("GET")
 	router.HandleFunc("/api/image/ad/{id}", models.StoreNewImage).Methods("POST")
+	router.HandleFunc("/api/image/user/", models.StoreUserProfileImage).Methods("POST")
 	router.HandleFunc("/api/register", models.RegisterNewUser).Methods("POST")
 	router.HandleFunc("/api/add_to_favorites", models.AddToFavorites).Methods("POST")
 	router.HandleFunc("/api/remove_favorite", models.RemoveFavorite).Methods("POST")
@@ -33,6 +34,7 @@ func main() {
 	router.HandleFunc("/api/get_cities/", models.GetCitiesAndCategoriesInDB).Methods("GET")
 	router.HandleFunc("/api/delete_ad/", models.DeleteAd).Methods("DELETE")
 	router.HandleFunc("/api/update_ad/", models.UpdateAd).Methods("PATCH")
+	router.HandleFunc("/api/update_profile/", models.UpdateProfile).Methods("PATCH")
 
 	// setup request allowed by the server
 	headers := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "Content-Type", "Authorization", "X-Requested-With"})

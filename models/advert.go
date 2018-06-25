@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -334,6 +333,44 @@ func getAdvertImagesURL(id int) (urls []string, err error) {
 	return
 }
 
+func StoreUserProfileImage(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query()["userID"][0]
+	re := regexp.MustCompile(`[\s()]`)
+	file, fileHeader, err := r.FormFile("file")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer file.Close()
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = os.MkdirAll(wd+"/public/images/users_images/"+userID, os.ModeDir)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	path := filepath.Join(wd, "public", "images", "users_images", userID, re.ReplaceAllString(fileHeader.Filename, ""))
+
+	newFile, err := os.Create(path)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer newFile.Close()
+
+	file.Seek(0, 0)
+	if _, err := io.Copy(newFile, file); err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("Profile image uploaded successfuly")
+}
+
 // StoreNewImage store image uploaded from front end to the server
 func StoreNewImage(w http.ResponseWriter, r *http.Request) {
 	adID := mux.Vars(r)["id"]
@@ -351,7 +388,12 @@ func StoreNewImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := filepath.Join(wd, "public", "images", adID+"_"+re.ReplaceAllString(fileHeader.Filename, ""))
+	err = os.MkdirAll(wd+"/public/images/adverts/"+adID, os.ModeDir)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	path := filepath.Join(wd, "public", "images", "adverts", adID, adID+"_"+re.ReplaceAllString(fileHeader.Filename, ""))
 
 	newFile, err := os.Create(path)
 	if err != nil {
@@ -422,21 +464,18 @@ func deleteAdFromFavoriteTable(ID int) (err error) {
 }
 
 func deleteAdImagesUrlsFromStorageAndDB(ID int) (err error) {
-	stmt1, err := Db.Prepare("SELECT URL FROM IMAGES_URL WHERE ADVERT_ID=$1")
+	var UID string
+	stmt1, err := Db.Prepare("SELECT AD_UID FROM ADVERTS WHERE ID=$1")
 	if err != nil {
 		return
 	}
-	rows, err := stmt1.Query(ID)
+	err = stmt1.QueryRow(ID).Scan(&UID)
 	if err != nil {
 		return
 	}
-	for rows.Next() {
-		var URL string
-		rows.Scan(&URL)
-		err = deleteImageFromStorage(URL)
-		if err != nil {
-			continue
-		}
+	err = deleteImageFromStorage(UID)
+	if err != nil {
+		return
 	}
 	stmt2, err := Db.Prepare("DELETE FROM IMAGES_URL WHERE ADVERT_ID=$1")
 	if err != nil {
@@ -455,15 +494,13 @@ func deleteAdImagesUrlsFromStorageAndDB(ID int) (err error) {
 	return errors.New("Can't remove these images...")
 }
 
-func deleteImageFromStorage(URL string) (err error) {
-	fileName := strings.Split(URL, "/")[5]
+func deleteImageFromStorage(UID string) (err error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	path := filepath.Join(wd, "public", "images", fileName)
-	err = os.Remove(path)
+	err = os.RemoveAll(wd + "/public/images/adverts/" + UID)
 	if err != nil {
 		log.Println("Can't remove this image from local storage...")
 		return
