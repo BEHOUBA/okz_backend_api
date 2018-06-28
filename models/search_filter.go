@@ -82,7 +82,7 @@ func searchAdverts(location, category, input, sort string, limit, offset int) (a
 	for rows.Next() {
 		var ad Advert
 		var ID int
-		err = rows.Scan(&ID, &ad.Location, &ad.OwnerID, &ad.Title, &ad.Description, &ad.Category, &ad.Price, &ad.Contact, &ad.CreatedAt, &ad.UID)
+		err = rows.Scan(&ID, &ad.Location, &ad.OwnerID, &ad.Title, &ad.Description, &ad.Category, &ad.Price, &ad.Contact, &ad.UID, &ad.Address, &ad.CreatedAt)
 		if err != nil {
 			log.Println(err)
 			return

@@ -25,6 +25,7 @@ func main() {
 	router.HandleFunc("/api/remove_favorite", models.RemoveFavorite).Methods("POST")
 	router.HandleFunc("/api/send_message", models.MessageReceiver).Methods("POST")
 	router.HandleFunc("/api/login", models.Login).Methods("POST")
+	router.HandleFunc("/api/fb_google_login", models.FBAndGoogleLogin).Methods("POST")
 	router.HandleFunc("/api/check", models.CheckUserStatus).Methods("GET")
 	router.HandleFunc("/api/get_ads/", models.GetAds).Methods("GET")
 	router.HandleFunc("/api/getFavorites/", models.GetFavorites).Methods("GET")

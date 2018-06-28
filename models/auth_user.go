@@ -18,14 +18,14 @@ var signedKey = []byte("okz")
 
 // User struct for each user on the site
 type User struct {
-	ID                int       `json:"id"`
-	DisplayName       string    `json:"userName"`
-	Email             string    `json:"email"`
-	PhoneNumber       string    `json:"phoneNumber"`
-	Password          string    `json:"password"`
-	UserProfileImgURL string    `json:"profileImg"`
-	CreatedAt         time.Time `json:"date"`
-	Location          string    `json"location"`
+	ID                int    `json:"id"`
+	DisplayName       string `json:"userName"`
+	Email             string `json:"email"`
+	PhoneNumber       string `json:"phoneNumber"`
+	Password          string `json:"password"`
+	UserProfileImgURL string `json:"profileImg"`
+	CreatedAt         string `json:"date"`
+	Location          string `json"location"`
 }
 
 // UserData struct for
@@ -66,11 +66,11 @@ func securityCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (u *User) getUserData() (userData UserData, err error) {
-	stmt1, err := Db.Prepare("SELECT ID, USER_NAME, EMAIL, PHONE_NUMBER, LOCATION, PROFILE_PICTURE_URL FROM USERS WHERE ID=$1")
+	stmt1, err := Db.Prepare("SELECT ID, USER_NAME, EMAIL, PHONE_NUMBER, LOCATION, PROFILE_PICTURE_URL, CREATED_AT FROM USERS WHERE ID=$1")
 	if err != nil {
 		return
 	}
-	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.ID, &userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber, &userData.Info.Location, &userData.Info.UserProfileImgURL)
+	err = stmt1.QueryRow(u.ID).Scan(&userData.Info.ID, &userData.Info.DisplayName, &userData.Info.Email, &userData.Info.PhoneNumber, &userData.Info.Location, &userData.Info.UserProfileImgURL, &userData.Info.CreatedAt)
 	if err != nil {
 		return
 	}
@@ -100,7 +100,7 @@ func (u *User) getToken(w http.ResponseWriter) error {
 	}
 	userData, err := u.getUserData()
 	if err != nil {
-		log.Println(err)
+		log.Println(err, "get token err")
 		return err
 	}
 	tokenJSON, err := json.Marshal(Token{Token: tokenValue, UserData: userData})
@@ -116,15 +116,61 @@ func CheckUserStatus(w http.ResponseWriter, r *http.Request) {
 	securityCheck(w, r)
 }
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	// r.ParseMultipartForm(10000)
+func FBAndGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	var user User
+	bs := make([]byte, r.ContentLength)
+	bs, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	// formData := r.MultipartForm.Value
-	// var newUser User
-	// newUser.Email = strings.Join(formData["email"], "")
-	// newUser.Password = strings.Join(formData["password"], "")
-	// newUser.ID = 5
-	// log.Println(newUser)
+	if err := json.Unmarshal(bs, &user); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	log.Println(user)
+	if err := user.GoogleAuth(); err != nil {
+		log.Println(err)
+		if err := user.CreateGoogleUser(); err != nil {
+			log.Println(err)
+			return
+		}
+	}
+	user.getToken(w)
+	log.Println("token sent...")
+	return
+}
+
+func (u *User) GoogleAuth() (err error) {
+	stmt, err := Db.Prepare("SELECT ID FROM USERS WHERE EMAIL=$1")
+	if err != nil {
+		return
+	}
+	err = stmt.QueryRow(u.Email).Scan(&u.ID)
+	if err != nil {
+		return errors.New("New google user, must create an account...")
+	}
+	log.Println("login with facebook or google succed...")
+	return
+}
+
+func (u *User) CreateGoogleUser() (err error) {
+	stmt, err := Db.Prepare("INSERT INTO USERS (USER_NAME, EMAIL, CREATED_AT, PROFILE_PICTURE_URL) VALUES ($1, $2, $3, $4) RETURNING ID;")
+	if err != nil {
+		return
+	}
+	err = stmt.QueryRow(u.DisplayName, u.Email, time.Now(), u.UserProfileImgURL).Scan(&u.ID)
+	if err != nil {
+		return
+	}
+	log.Println("facebook or google user created...")
+	return
+}
+
+func Login(w http.ResponseWriter, r *http.Request) {
 	var user User
 	bs := make([]byte, r.ContentLength)
 	bs, err := ioutil.ReadAll(r.Body)

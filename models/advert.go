@@ -21,19 +21,19 @@ import (
 
 // Advert struct representing each ad data
 type Advert struct {
-	ID          int       `json:"id"`
-	OwnerID     int       `json:"userID"`
-	UID         string    `json:"Uid"`
-	Title       string    `json:"title"`
-	Category    string    `json:"category"`
-	Location    string    `json:"location"`
-	Description string    `json:"description"`
-	Price       int       `json:"price"`
-	ImgURL      []string  `json:"imgUrls"`
-	Contact     string    `json:"contact"`
-	Address     string    `json:"address"`
-	CreatedAt   time.Time `json:"createdAt"`
-	IsFavorite  bool      `json:"isFavorite"`
+	ID          int      `json:"id"`
+	OwnerID     int      `json:"userID"`
+	UID         string   `json:"Uid"`
+	Title       string   `json:"title"`
+	Category    string   `json:"category"`
+	Location    string   `json:"location"`
+	Description string   `json:"description"`
+	Price       int      `json:"price"`
+	ImgURL      []string `json:"imgUrls"`
+	Contact     string   `json:"contact"`
+	Address     string   `json:"address"`
+	CreatedAt   string   `json:"createdAt"`
+	IsFavorite  bool     `json:"isFavorite"`
 }
 
 var Db *sql.DB
@@ -49,7 +49,7 @@ func init() {
 
 func (a *Advert) storeNewAdToDB() (err error) {
 	var newAdID int
-	stmt, err := Db.Prepare("INSERT INTO ADVERTS (LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;")
+	stmt, err := Db.Prepare("INSERT INTO ADVERTS (LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID, ADDRESS) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id;")
 	if err != nil {
 		log.Println(err)
 		return
@@ -61,7 +61,7 @@ func (a *Advert) storeNewAdToDB() (err error) {
 		return
 	}
 
-	err = stmt.QueryRow(a.Location, a.OwnerID, a.Title, a.Description, a.Category, a.Price, a.Contact, time.Now(), a.UID).Scan(&newAdID)
+	err = stmt.QueryRow(a.Location, a.OwnerID, a.Title, a.Description, a.Category, a.Price, a.Contact, time.Now(), a.UID, a.Address).Scan(&newAdID)
 	if err != nil {
 		log.Println(err)
 		return
@@ -87,7 +87,6 @@ func CreateNewAd(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	log.Println(string(bs))
 	err = json.Unmarshal(bs, &ad)
 	if err != nil {
 		log.Println(err)
@@ -192,11 +191,11 @@ func (ad *Advert) isFavorite(userID int) (err error) {
 }
 
 func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE AD_UID=$1")
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID, ADDRESS FROM ADVERTS WHERE AD_UID=$1")
 	if err != nil {
 		return
 	}
-	err = stmt.QueryRow(UID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+	err = stmt.QueryRow(UID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID, &advert.Address)
 	if err != nil {
 		return
 	}
@@ -209,11 +208,11 @@ func getAdvertFromDBByUID(UID string) (advert Advert, err error) {
 }
 
 func getAdvertByID(ID int) (advert Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE ID=$1")
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID, ADDRESS FROM ADVERTS WHERE ID=$1")
 	if err != nil {
 		return
 	}
-	err = stmt.QueryRow(ID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+	err = stmt.QueryRow(ID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID, &advert.Address)
 	if err != nil {
 		return
 	}
@@ -226,7 +225,7 @@ func getAdvertByID(ID int) (advert Advert, err error) {
 }
 
 func getAdvertsByUserID(ID int) (ads []Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE OWNER_ID=$1 ORDER BY CREATED_AT DESC")
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID, ADDRESS FROM ADVERTS WHERE OWNER_ID=$1 ORDER BY CREATED_AT DESC")
 	if err != nil {
 		return
 	}
@@ -236,7 +235,7 @@ func getAdvertsByUserID(ID int) (ads []Advert, err error) {
 	}
 	for rows.Next() {
 		var advert Advert
-		err = rows.Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		err = rows.Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID, &advert.Address)
 		if err != nil {
 			return
 		}
@@ -254,7 +253,7 @@ func getFavoritesByUserID(ID int) (ads []Advert, err error) {
 	if err != nil {
 		return
 	}
-	stmt2, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS WHERE ID=$1")
+	stmt2, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID, ADDRESS FROM ADVERTS WHERE ID=$1")
 	if err != nil {
 		return
 	}
@@ -269,7 +268,7 @@ func getFavoritesByUserID(ID int) (ads []Advert, err error) {
 		if err != nil {
 			return
 		}
-		err = stmt2.QueryRow(adID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID)
+		err = stmt2.QueryRow(adID).Scan(&advert.ID, &advert.Location, &advert.OwnerID, &advert.Title, &advert.Description, &advert.Category, &advert.Price, &advert.Contact, &advert.CreatedAt, &advert.UID, &advert.Address)
 		if err != nil {
 			return
 		}
@@ -283,7 +282,7 @@ func getFavoritesByUserID(ID int) (ads []Advert, err error) {
 }
 
 func getAdvertsFromDB(limit, offset int) (ads []Advert, err error) {
-	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID FROM ADVERTS ORDER BY CREATED_AT LIMIT $1 OFFSET $2")
+	stmt, err := Db.Prepare("SELECT ID, LOCATION, OWNER_ID, TITLE, DESCRIPTION, CATEGORY, PRICE, CONTACT, CREATED_AT, AD_UID, ADDRESS FROM ADVERTS ORDER BY CREATED_AT LIMIT $1 OFFSET $2")
 	if err != nil {
 		log.Println(err)
 		return
@@ -295,7 +294,7 @@ func getAdvertsFromDB(limit, offset int) (ads []Advert, err error) {
 	}
 	for rows.Next() {
 		var ad Advert
-		err = rows.Scan(&ad.ID, &ad.Location, &ad.OwnerID, &ad.Title, &ad.Description, &ad.Category, &ad.Price, &ad.Contact, &ad.CreatedAt, &ad.UID)
+		err = rows.Scan(&ad.ID, &ad.Location, &ad.OwnerID, &ad.Title, &ad.Description, &ad.Category, &ad.Price, &ad.Contact, &ad.CreatedAt, &ad.UID, &ad.Address)
 		if err != nil {
 			log.Println(err)
 			return
@@ -531,11 +530,11 @@ func UpdateAd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Advert) updateAdByID() (err error) {
-	stmt, err := Db.Prepare("UPDATE ADVERTS SET LOCATION=$1, OWNER_ID=$2, TITLE=$3, DESCRIPTION=$4, CATEGORY=$5, PRICE=$6, CONTACT=$7, CREATED_AT=$8, AD_UID=$9 WHERE ID=$10")
+	stmt, err := Db.Prepare("UPDATE ADVERTS SET LOCATION=$1, OWNER_ID=$2, TITLE=$3, DESCRIPTION=$4, CATEGORY=$5, PRICE=$6, CONTACT=$7, CREATED_AT=$8, AD_UID=$9, ADDRESS=$10 WHERE ID=$11")
 	if err != nil {
 		return
 	}
-	res, err := stmt.Exec(a.Location, a.OwnerID, a.Title, a.Description, a.Category, a.Price, a.Contact, a.CreatedAt, a.UID, a.ID)
+	res, err := stmt.Exec(a.Location, a.OwnerID, a.Title, a.Description, a.Category, a.Price, a.Contact, a.CreatedAt, a.UID, a.Address, a.ID)
 	if err != nil {
 		return
 	}
