@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -26,7 +25,7 @@ func GetAds(w http.ResponseWriter, r *http.Request) {
 	category := strings.Replace(query["category"][0], "_", " ", -1)
 	input := strings.Join(query["input"], "")
 	sort := strings.Join(query["sort"], "")
-	// log.Println(location, category)
+	log.Println(location, category, input, limitS, offsetS, sort)
 
 	limit, err := strconv.Atoi(limitS)
 	if err != nil {
@@ -46,35 +45,35 @@ func GetAds(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	log.Println("succed ", string(bs))
 	w.Write(bs)
 }
 
 func searchAdverts(location, category, input, sort string, limit, offset int) (adverts []Advert, err error) {
-	var stmt *sql.Stmt
+	var queryString string
 	if location == "" && category == "" && input == "" && sort == "" {
-		stmt, err = Db.Prepare("SELECT * FROM ADVERTS ORDER BY CREATED_AT LIMIT $1 OFFSET $2")
-		if err != nil {
-			log.Println(err)
-			return
-		}
 		return getAdvertsFromDB(limit, offset)
-	} else {
+	}
+	queryString = "SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || '" + location + "' ||'%') "
+	if category != "" {
+		queryString = queryString + "AND LOWER(CATEGORY) LIKE LOWER('%' || '" + category + "' ||'%') "
+	}
+	if input != "" {
+		queryString = queryString + "AND (LOWER(DESCRIPTION) LIKE ('%' || '" + input + "' ||'%') OR LOWER(TITLE) LIKE ('%' || '" + input + "' ||'%')) "
+	}
+	if sort != "" {
 		switch sort {
 		case "prix_croissant":
-			stmt, err = Db.Prepare("SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || $1 ||'%') AND LOWER(CATEGORY) LIKE LOWER('%' || $2 ||'%') AND LOWER(DESCRIPTION) LIKE ('%' || $3 ||'%') AND LOWER(TITLE) LIKE ('%' || $4 ||'%') ORDER BY PRICE ASC LIMIT $5 OFFSET $6;")
+			queryString = queryString + "ORDER BY PRICE ASC "
 		case "prix_decroissant":
-			stmt, err = Db.Prepare("SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || $1 ||'%') AND LOWER(CATEGORY) LIKE LOWER('%' || $2 ||'%') AND LOWER(DESCRIPTION) LIKE ('%' || $3 ||'%') AND LOWER(TITLE) LIKE ('%' || $4 ||'%') ORDER BY PRICE DESC LIMIT $5 OFFSET $6;")
-		case "nouveautés":
-			stmt, err = Db.Prepare("SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || $1 ||'%') AND LOWER(CATEGORY) LIKE LOWER('%' || $2 ||'%') AND LOWER(DESCRIPTION) LIKE ('%' || $3 ||'%') AND LOWER(TITLE) LIKE ('%' || $4 ||'%') ORDER BY CREATED_AT DESC LIMIT $5 OFFSET $6;")
+			queryString = queryString + "ORDER BY PRICE DESC "
 		default:
-			stmt, err = Db.Prepare("SELECT * FROM ADVERTS WHERE LOWER(LOCATION) LIKE LOWER('%' || $1 ||'%') AND LOWER(CATEGORY) LIKE LOWER('%' || $2 ||'%') AND LOWER(DESCRIPTION) LIKE ('%' || $3 ||'%') AND LOWER(TITLE) LIKE ('%' || $4 ||'%') LIMIT $5 OFFSET $6;")
+			queryString = queryString + "ORDER BY CREATED_AT DESC "
 		}
 	}
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	rows, err := stmt.Query(location, category, input, input, limit, offset)
+	queryString = queryString + "LIMIT " + strconv.Itoa(limit) + " OFFSET " + strconv.Itoa(offset) + ";"
+	log.Println(queryString)
+	rows, err := Db.Query(queryString)
 	if err != nil {
 		log.Println(err)
 		return
