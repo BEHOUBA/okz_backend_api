@@ -21,8 +21,8 @@ func GetAds(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	limitS := query["limit"][0]
 	offsetS := query["offset"][0]
-	location := strings.Replace(query["location"][0], "_", " ", -1)
-	category := strings.Replace(query["category"][0], "_", " ", -1)
+	location := strings.Replace(query["location"][0], "'", "''", -1)
+	category := strings.Replace(query["category"][0], "'", "''", -1)
 	input := strings.Join(query["input"], "")
 	sort := strings.Join(query["sort"], "")
 	log.Println(location, category, input, limitS, offsetS, sort)
@@ -59,7 +59,7 @@ func searchAdverts(location, category, input, sort string, limit, offset int) (a
 		queryString = queryString + "AND LOWER(CATEGORY) LIKE LOWER('%' || '" + category + "' ||'%') "
 	}
 	if input != "" {
-		queryString = queryString + "AND (LOWER(DESCRIPTION) LIKE ('%' || '" + input + "' ||'%') OR LOWER(TITLE) LIKE ('%' || '" + input + "' ||'%')) "
+		queryString = queryString + "AND (LOWER(DESCRIPTION) LIKE ('%' || '" + input + "' ||'%') OR LOWER(TITLE) LIKE ('%' || '" + input + "' ||'%') OR LOWER(CATEGORY) LIKE ('%' || '" + input + "' ||'%')) "
 	}
 	if sort != "" {
 		switch sort {
